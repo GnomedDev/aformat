@@ -29,7 +29,7 @@ pub use arrayvec::ArrayString;
 #[doc(no_inline)]
 pub use to_arraystring::ToArrayString;
 
-pub use aformat_macros::{aformat, astr};
+pub use aformat_macros::{aformat, aformat_into, astr};
 
 /// A transparent wrapper around `&str` to truncate the byte length to a compile time constant.
 ///

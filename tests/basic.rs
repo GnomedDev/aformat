@@ -3,7 +3,7 @@
 
 use std::hint::black_box;
 
-use aformat::{aformat, astr};
+use aformat::{aformat, aformat_into, astr, ArrayString};
 
 #[test]
 pub fn basic_aformat() {
@@ -17,8 +17,4 @@ pub fn basic_aformat() {
     );
 
     black_box(out);
-}
-
-pub fn format_into(age: u8) -> arrayvec::ArrayString<22> {
-    aformat!("You are {age} years old!",)
 }

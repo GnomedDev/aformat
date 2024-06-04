@@ -1,5 +1,7 @@
 #![warn(clippy::pedantic, rust_2018_idioms)]
 
+use std::array;
+
 use bytestring::ByteString;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -75,12 +77,32 @@ impl syn::parse::Parse for Arguments {
     }
 }
 
-fn aformat_impl(tokens: proc_macro::TokenStream) -> Result<TokenStream> {
-    let Arguments {
+struct FormatIntoArguments {
+    write_into: syn::Ident,
+    arguments: Arguments,
+}
+
+impl syn::parse::Parse for FormatIntoArguments {
+    fn parse(input: syn::parse::ParseStream<'_>) -> Result<Self> {
+        let write_into = input.parse()?;
+        input.parse::<Token![,]>()?;
+
+        let arguments = Arguments::parse(input)?;
+
+        Ok(Self {
+            write_into,
+            arguments,
+        })
+    }
+}
+
+fn aformat_impl(
+    Arguments {
         str_base_len,
         pieces,
-    } = syn::parse(tokens)?;
-
+    }: Arguments,
+    write_into: Option<syn::Ident>,
+) -> proc_macro2::TokenStream {
     let arguments_iter = pieces.iter().filter_map(|p| {
         if let Piece::Argument(ident) = p {
             Some(ident)
@@ -89,29 +111,51 @@ fn aformat_impl(tokens: proc_macro::TokenStream) -> Result<TokenStream> {
         }
     });
 
-    let arguments_iter_1 = arguments_iter.clone();
     let argument_count = arguments_iter.clone().count();
+    let [arguments_iter_1, arguments_iter_2, arguments_iter_3, arguments_iter_4] =
+        array::from_fn(|_| arguments_iter.clone());
 
     let type_args = (0..argument_count).map(|i| format_ident!("T{i}"));
-    let type_args_1 = type_args.clone();
-    let type_args_2 = type_args.clone();
+    let [type_args_1, type_args_2, type_args_3, type_args_4, type_args_5] =
+        array::from_fn(|_| type_args.clone());
 
-    let out = quote!({
+    let calc_required_len = {
+        let type_args = type_args.clone();
+        quote!(#str_base_len + #(#type_args::MAX_LENGTH)+*)
+    };
+
+    let final_expr = match write_into {
+        Some(ident) => quote!(aformat_into_inner(&mut #ident, #(#arguments_iter_1),*)),
+        None => quote!(
+            fn aformat_inner<#(#type_args_4: ToArrayString),*>(
+                #(#arguments_iter_2: #type_args_5),*
+            ) -> ArrayString<{ #calc_required_len }> {
+                let mut out_buffer = ArrayString::new();
+                aformat_into_inner(&mut out_buffer, #(#arguments_iter_3),*);
+                out_buffer
+            }
+
+            aformat_inner(#(#arguments_iter_4),*)
+        ),
+    };
+
+    quote!({
         use ::aformat::{ArrayString, ToArrayString};
 
-        fn aformat_inner<#(#type_args: ToArrayString),*>(
-            #(#arguments_iter: #type_args_1),*
-        ) -> ArrayString<{ #str_base_len + #(#type_args_2::MAX_LENGTH)+* }>
-        {
-            let mut out_buffer = ArrayString::new();
-            #(out_buffer.push_str(#pieces);)*
-            out_buffer
+        const fn check_args_fits<const BUF_CAP: usize, #(#type_args_2: ToArrayString),*>() {
+            assert!(BUF_CAP >= (#calc_required_len), "Buffer is not large enough to format into")
         }
 
-        aformat_inner(#(#arguments_iter_1),*)
-    });
+        fn aformat_into_inner<const BUF_CAP: usize, #(#type_args: ToArrayString),*>(
+            out_buffer: &mut ArrayString<BUF_CAP>,
+            #(#arguments_iter: #type_args_1),*
+        ) {
+            const { check_args_fits::<BUF_CAP, #(#type_args_3),*>() };
+            #(out_buffer.push_str(#pieces);)*
+        }
 
-    Ok(out)
+        #final_expr
+    })
 }
 
 /// A no-alloc version of [`format!`], producing an [`ArrayString`].
@@ -127,10 +171,52 @@ fn aformat_impl(tokens: proc_macro::TokenStream) -> Result<TokenStream> {
 /// [`ArrayString`]: https://docs.rs/arrayvec/latest/arrayvec/struct.ArrayString.html
 #[proc_macro]
 pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    match aformat_impl(tokens) {
-        Ok(tokens) => tokens.into(),
-        Err(err) => err.into_compile_error().into(),
-    }
+    let arguments = match syn::parse(tokens) {
+        Ok(args) => args,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    aformat_impl(arguments, None).into()
+}
+
+/// [`aformat!`], but you provide your own [`ArrayString`].
+///
+/// The length of the [`ArrayString`] is checked at compile-time to fit all the arguments, although is not checked to be optimal.
+///
+/// ## Usage
+/// The first argument should be the identifier of the [`ArrayString`], then the normal [`aformat!`] arguments follow.
+///
+/// ## Examples
+/// ```
+/// let mut out_buf = ArrayString::<32>::new();
+///
+/// let age = 18_u8;
+/// aformat_into!(out_buf, "You are {} years old!", age);
+///
+/// assert_eq!(out_buf.as_str(), "You are 18 years old!");
+/// ```
+///
+/// ```compile_fail
+/// // Buffer is too small, so compile failure!
+/// let mut out_buf = ArrayString::<4>::new();
+///
+/// let age = 18_u8;
+/// aformat_into!(out_buf, "You are {} years old!", age);
+/// ```
+///
+// Workaround for a rustdoc bug.
+/// [`ArrayString`]: https://docs.rs/arrayvec/latest/arrayvec/struct.ArrayString.html
+#[proc_macro]
+pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let FormatIntoArguments {
+        arguments,
+        write_into,
+    } = match syn::parse(tokens) {
+        Ok(args) => args,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    aformat_impl(arguments, Some(write_into)).into()
 }
 
 fn astr_impl(tokens: proc_macro::TokenStream) -> Result<TokenStream> {
