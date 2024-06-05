@@ -1,6 +1,6 @@
 [package]
 name = "aformat"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 categories = ["value-formatting", "no-std", "no-std::no-alloc"]
@@ -9,6 +9,6 @@ repository = "https://github.com/GnomedDev/aformat"
 description = "A no-std and no-alloc version of format! using ToArrayString"
 
 [dependencies]
-aformat-macros = { version = "0.1.0", path = "macros" }
+aformat-macros = { version = "0.1.1", path = "macros" }
 to-arraystring = { version = "0.2.0" }
 arrayvec = "0.7.4"
