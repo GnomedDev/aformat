@@ -18,3 +18,13 @@ pub fn basic_aformat() {
 
     black_box(out);
 }
+
+#[test]
+pub fn aformat_into() {
+    let mut out_buf = ArrayString::<32>::new();
+
+    let age = 18_u8;
+    aformat_into!(out_buf, "You are {} years old!", age);
+
+    assert_eq!(out_buf.as_str(), "You are 18 years old!");
+}
