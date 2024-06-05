@@ -3,7 +3,7 @@
 
 use std::hint::black_box;
 
-use aformat::{aformat, aformat_into, astr, ArrayString};
+use aformat::{aformat, astr};
 
 #[test]
 pub fn basic_aformat() {

@@ -188,6 +188,10 @@ pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// ## Examples
 /// ```
+/// # use aformat_macros as aformat;
+/// use aformat::afromat_into;
+/// use arrayvec::ArrayString;
+///
 /// let mut out_buf = ArrayString::<32>::new();
 ///
 /// let age = 18_u8;
@@ -231,10 +235,15 @@ fn astr_impl(tokens: proc_macro::TokenStream) -> Result<TokenStream> {
 ///
 /// ## Expansion
 /// ```rust
+/// # use aformat_macros as aformat;
+/// use aformat::astr;
+///
 /// let my_string = astr!("Hello World");
 /// ```
 /// expands to
 /// ```rust
+/// # use aformat_macros as aformat;
+///
 /// let my_string = aformat::ArrayString::<11>::from("Hello World").unwrap();
 /// ```
 ///
