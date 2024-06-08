@@ -28,3 +28,16 @@ pub fn aformat_into() {
 
     assert_eq!(out_buf.as_str(), "You are 18 years old!");
 }
+
+#[test]
+pub fn astr() {
+    const STR: &str = "Hello World";
+
+    let const_val = astr!(STR);
+    let lit_val = astr!("Hello World");
+
+    for val in [const_val, lit_val] {
+        assert_eq!(val.as_str(), "Hello World");
+        assert_eq!(val.capacity(), val.len());
+    }
+}

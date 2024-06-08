@@ -29,7 +29,30 @@ pub use arrayvec::ArrayString;
 #[doc(no_inline)]
 pub use to_arraystring::ToArrayString;
 
-pub use aformat_macros::{aformat, aformat_into, astr};
+pub use aformat_macros::{aformat, aformat_into};
+
+/// A simple and easy way to make a perfectly fitting [`ArrayString`] from a literal.
+///
+/// ## Expansion
+/// ```rust
+/// use aformat::astr;
+///
+/// let my_string = astr!("Hello World");
+/// ```
+/// expands to
+/// ```rust
+/// let my_string = {
+///     const STR_LEN: usize = str::len("Hello World");
+///     aformat::ArrayString::<STR_LEN>::from("Hello World").unwrap();
+/// };
+/// ```
+#[macro_export]
+macro_rules! astr {
+    ($val:expr) => {{
+        const STR_LEN: usize = ::core::primitive::str::len($val);
+        ::aformat::ArrayString::<STR_LEN>::from($val).unwrap()
+    }};
+}
 
 /// A transparent wrapper around `&str` to truncate the byte length to a compile time constant.
 ///

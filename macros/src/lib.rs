@@ -218,31 +218,3 @@ pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     aformat_impl(arguments, Some(write_into)).into()
 }
-
-fn astr_impl(tokens: proc_macro::TokenStream) -> Result<TokenStream> {
-    let str = syn::parse::<syn::LitStr>(tokens)?;
-    let str_len = str.value().len();
-    let str = str.token();
-
-    Ok(quote!(::aformat::ArrayString::<#str_len>::from(#str).unwrap()))
-}
-
-/// A simple and easy way to make a perfectly fitting [`ArrayString`] from a literal.
-///
-/// ## Expansion
-/// ```rust
-/// let my_string = astr!("Hello World");
-/// ```
-/// expands to
-/// ```rust
-/// let my_string = aformat::ArrayString::<11>::from("Hello World").unwrap();
-/// ```
-///
-/// [`ArrayString`]: https://docs.rs/arrayvec/latest/arrayvec/struct.ArrayString.html
-#[proc_macro]
-pub fn astr(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    match astr_impl(tokens) {
-        Ok(tokens) => tokens.into(),
-        Err(err) => err.into_compile_error().into(),
-    }
-}
