@@ -9,6 +9,8 @@ repository = "https://github.com/GnomedDev/aformat"
 description = "A no-std and no-alloc version of format! using ToArrayString"
 
 [dependencies]
+typenum_mappings = { version = "0.1", path = "../typenum_mappings" }
+typenum = { version = "1.17.0", features = ["const-generics"] }
 aformat-macros = { version = "0.1.1", path = "macros" }
 to-arraystring = { version = "0.2.0" }
 arrayvec = "0.7.4"

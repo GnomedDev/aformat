@@ -18,4 +18,4 @@ procout = { version = "0.1.13", features = ["procout"] }
 [dependencies.syn]
 version = "2.0.61"
 default-features = false
-features = ["parsing", "proc-macro"]
+features = ["printing", "parsing", "proc-macro"]

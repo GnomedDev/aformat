@@ -17,7 +17,7 @@ impl quote::ToTokens for Piece {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             Self::Literal(str) => str.to_tokens(tokens),
-            Self::Argument(argument) => quote!(&#argument.to_arraystring()).to_tokens(tokens),
+            Self::Argument(argument) => quote!(#argument.as_str()).to_tokens(tokens),
         }
     }
 }
@@ -101,7 +101,6 @@ fn aformat_impl(
         str_base_len,
         pieces,
     }: Arguments,
-    write_into: Option<syn::Ident>,
 ) -> proc_macro2::TokenStream {
     let arguments_iter = pieces.iter().filter_map(|p| {
         if let Piece::Argument(ident) = p {
@@ -112,49 +111,44 @@ fn aformat_impl(
     });
 
     let argument_count = arguments_iter.clone().count();
-    let [arguments_iter_1, arguments_iter_2, arguments_iter_3, arguments_iter_4] =
-        array::from_fn(|_| arguments_iter.clone());
+    let [arguments_iter_1] = array::from_fn(|_| arguments_iter.clone());
 
-    let type_args = (0..argument_count).map(|i| format_ident!("T{i}"));
-    let [type_args_1, type_args_2, type_args_3, type_args_4, type_args_5] =
-        array::from_fn(|_| type_args.clone());
+    let const_args = (0..argument_count).map(|i| format_ident!("N{i}"));
+    let [const_args_1, const_args_2, const_args_3] = array::from_fn(|_| const_args.clone());
 
-    let calc_required_len = {
-        let type_args = type_args.clone();
-        quote!(#str_base_len + #(#type_args::MAX_LENGTH)+*)
-    };
+    let return_adder = const_args.clone().fold(
+        quote!(StrBaseLen),
+        |current, ident| quote!(RunAdd<#current, U<#ident>>),
+    );
 
-    let final_expr = match write_into {
-        Some(ident) => quote!(aformat_into_inner(&mut #ident, #(#arguments_iter_1),*)),
-        None => quote!(
-            fn aformat_inner<#(#type_args_4: ToArrayString),*>(
-                #(#arguments_iter_2: #type_args_5),*
-            ) -> ArrayString<{ #calc_required_len }> {
-                let mut out_buffer = ArrayString::new();
-                aformat_into_inner(&mut out_buffer, #(#arguments_iter_3),*);
-                out_buffer
-            }
-
-            aformat_inner(#(#arguments_iter_4),*)
-        ),
+    let return_bound = if argument_count != 0 {
+        let close_angle_braces = (0..argument_count).map(|_| <Token![>]>::default());
+        quote!(StrBaseLen: #(Add<U<#const_args_3>, Output: )* TypeNumToArrayString #(#close_angle_braces)*)
+    } else {
+        quote!(StrBaseLen: TypeNumToArrayString)
     };
 
     quote!({
-        use ::aformat::{ArrayString, ToArrayString};
+        use ::aformat::{ArrayString, ToArrayString, __internal::*};
 
-        const fn check_args_fits<const BUF_CAP: usize, #(#type_args_2: ToArrayString),*>() {
-            assert!(BUF_CAP >= (#calc_required_len), "Buffer is not large enough to format into")
+        #[allow(clippy::too_many_arguments)]
+        fn aformat_inner<StrBaseLen, #(const #const_args: usize),*>(
+            #(#arguments_iter: ArrayString<#const_args_1>),*
+        ) -> RunTypeToArrayString<#return_adder>
+        where
+            Const<#str_base_len>: ToUInt<Output = StrBaseLen>,
+            #(Const<#const_args_2>: ToUInt,)*
+            #return_bound
+        {
+            let mut out = ArrayStringLike::new();
+            // Fixes type inferrence
+            if false { return out; }
+
+            #(out.push_str(#pieces);)*
+            out
         }
 
-        fn aformat_into_inner<const BUF_CAP: usize, #(#type_args: ToArrayString),*>(
-            out_buffer: &mut ArrayString<BUF_CAP>,
-            #(#arguments_iter: #type_args_1),*
-        ) {
-            const { check_args_fits::<BUF_CAP, #(#type_args_3),*>() };
-            #(out_buffer.push_str(#pieces);)*
-        }
-
-        #final_expr
+        aformat_inner(#(ToArrayString::to_arraystring(#arguments_iter_1)),*)
     })
 }
 
@@ -176,7 +170,7 @@ pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    aformat_impl(arguments, None).into()
+    aformat_impl(arguments).into()
 }
 
 /// [`aformat!`], but you provide your own [`ArrayString`].
@@ -216,5 +210,5 @@ pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream 
         Err(err) => return err.into_compile_error().into(),
     };
 
-    aformat_impl(arguments, Some(write_into)).into()
+    todo!()
 }

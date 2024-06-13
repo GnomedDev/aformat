@@ -15,6 +15,8 @@ dependencies = [
  "aformat-macros",
  "arrayvec",
  "to-arraystring",
+ "typenum",
+ "typenum_mappings",
 ]
 
 [[package]]
@@ -241,6 +243,21 @@ dependencies = [
  "arrayvec",
  "itoa",
  "ryu",
+]
+
+[[package]]
+name = "typenum"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "typenum_mappings"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
 ]
 
 [[package]]
