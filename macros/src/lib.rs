@@ -254,6 +254,7 @@ pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream 
     quote!({
         use ::aformat::{ArrayString, ToArrayString, __internal::*};
 
+        #[allow(clippy::too_many_arguments)]
         fn aformat_into_inner<StrBaseLen, const OUT: usize, #(const #const_args_2: usize),*>(
             out: &mut ArrayString<OUT>,
             #(#arguments_iter_2: ArrayString<#const_args_3>),*
