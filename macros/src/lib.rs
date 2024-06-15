@@ -144,7 +144,6 @@ impl syn::parse::Parse for FormatIntoArguments {
 /// Usage is similar to `format!`, although there are multiple limitations:
 /// - No support for formatting flags, as we are not reinventing all of `format!`.
 /// - No support for `format!("{name}", name=username)` syntax, may be lifted in future.
-/// - No support for arbitrary expressions, this may be lifted in future aswell.
 ///
 // Workaround for a rustdoc bug.
 /// [`format!`]: https://doc.rust-lang.org/stable/std/macro.format.html
