@@ -48,8 +48,14 @@ impl Piece {
 impl quote::ToTokens for Piece {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            Self::Literal(str) => str.to_tokens(tokens),
-            Self::Argument { ident, .. } => quote!(#ident.as_str()).to_tokens(tokens),
+            Self::Literal(str) if str.is_empty() => {}
+            Self::Literal(str) => {
+                let str: &str = str;
+                quote!(out.push_str(#str);).to_tokens(tokens)
+            }
+            Self::Argument { ident, .. } => {
+                quote!(out.push_str(#ident.as_str());).to_tokens(tokens)
+            }
         }
     }
 }
@@ -186,7 +192,7 @@ pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // Fixes type inferrence
             if false { return out; }
 
-            #(out.push_str(#pieces);)*
+            #(#pieces)*
             out
         }
 
@@ -259,7 +265,7 @@ pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
             StrBaseLen: #(Add<U<#const_args_1>, Output: )* IsLessOrEqual<U<OUT>, Output: BufferFits> #(#return_close_angle_braces)*
         {
-            #(out.push_str(#pieces);)*
+            #(#pieces)*
         }
 
         aformat_into_inner(&mut #write_into, #(ToArrayString::to_arraystring(#caller_arguments)),*)
