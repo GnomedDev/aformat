@@ -3,20 +3,42 @@
 use std::array;
 
 use bytestring::ByteString;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{Error, Ident, Result, Token};
+use syn::{punctuated::Punctuated, Error, Expr, Ident, Result, Token};
+
+fn ident_to_expr(ident: Ident) -> syn::Expr {
+    syn::Expr::Path(syn::ExprPath {
+        attrs: Vec::new(),
+        qself: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments: Punctuated::from_iter([syn::PathSegment {
+                arguments: syn::PathArguments::None,
+                ident,
+            }]),
+        },
+    })
+}
 
 #[derive(Debug)]
 enum Piece {
     Literal(ByteString),
-    Argument(Ident),
+    Argument { expr: Expr, ident: Ident },
 }
 
 impl Piece {
     fn as_ident(&self) -> Option<&Ident> {
-        if let Self::Argument(ident) = self {
+        if let Self::Argument { ident, .. } = self {
             Some(ident)
+        } else {
+            None
+        }
+    }
+
+    fn as_expr(&self) -> Option<&Expr> {
+        if let Self::Argument { expr, .. } = self {
+            Some(expr)
         } else {
             None
         }
@@ -27,7 +49,7 @@ impl quote::ToTokens for Piece {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             Self::Literal(str) => str.to_tokens(tokens),
-            Self::Argument(argument) => quote!(#argument.as_str()).to_tokens(tokens),
+            Self::Argument { ident, .. } => quote!(#ident.as_str()).to_tokens(tokens),
         }
     }
 }
@@ -45,7 +67,6 @@ impl syn::parse::Parse for Arguments {
 
         let create_err = |msg| Error::new(format_str.span(), msg);
         let unterminated_fmt = move || create_err("Unterminated format argument");
-        let arg_missing = move || create_err("Not enough arguments for format string");
 
         let format_string = ByteString::from(format_str.value());
         let mut current: &str = &*format_string;
@@ -53,7 +74,7 @@ impl syn::parse::Parse for Arguments {
         let mut str_base_len = 0;
         let mut pieces = Vec::new();
 
-        loop {
+        for arg_num in 0_u8.. {
             let Some((text, rest)) = current.split_once('{') else {
                 str_base_len += current.len();
                 pieces.push(Piece::Literal(format_string.slice_ref(current)));
@@ -62,22 +83,29 @@ impl syn::parse::Parse for Arguments {
 
             let (arg_name, rest) = rest.split_once('}').ok_or_else(unterminated_fmt)?;
 
-            let ident = if arg_name.is_empty() {
-                let argument = input.parse::<Option<_>>()?.ok_or_else(arg_missing)?;
+            let arg_expr = if arg_name.is_empty() {
+                if input.is_empty() {
+                    return Err(create_err("Not enough arguments for format string"));
+                }
+
+                let argument = input.parse::<syn::Expr>()?;
                 if input.parse::<Option<Token![,]>>()?.is_none() && !input.is_empty() {
                     return Err(Error::new(input.span(), "Missing argument seperator (`,`)"));
                 };
 
                 argument
             } else {
-                Ident::new(arg_name, format_str.span())
+                ident_to_expr(syn::Ident::new(arg_name, format_str.span()))
             };
 
             current = rest;
 
             str_base_len += text.len();
             pieces.push(Piece::Literal(format_string.slice_ref(text)));
-            pieces.push(Piece::Argument(ident));
+            pieces.push(Piece::Argument {
+                expr: arg_expr,
+                ident: syn::Ident::new(&format!("arg_{arg_num}"), Span::call_site()),
+            });
         }
 
         Ok(Self {
@@ -127,7 +155,8 @@ pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let [arguments_iter_1, arguments_iter_2, arguments_iter_3] =
+    let caller_arguments = pieces.iter().filter_map(Piece::as_expr);
+    let [arguments_iter_1, arguments_iter_2] =
         array::from_fn(|_| pieces.iter().filter_map(Piece::as_ident));
 
     let argument_count = arguments_iter_1.count();
@@ -161,7 +190,7 @@ pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
             out
         }
 
-        aformat_inner(#(ToArrayString::to_arraystring(#arguments_iter_3)),*)
+        aformat_inner(#(ToArrayString::to_arraystring(#caller_arguments)),*)
     })
     .into()
 }
@@ -206,7 +235,8 @@ pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream 
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let [arguments_iter_1, arguments_iter_2, arguments_iter_3] =
+    let caller_arguments = pieces.iter().filter_map(Piece::as_expr);
+    let [arguments_iter_1, arguments_iter_2] =
         array::from_fn(|_| pieces.iter().filter_map(Piece::as_ident));
 
     let argument_count = arguments_iter_1.clone().count();
@@ -232,7 +262,7 @@ pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream 
             #(out.push_str(#pieces);)*
         }
 
-        aformat_into_inner(&mut #write_into, #(ToArrayString::to_arraystring(#arguments_iter_3)),*)
+        aformat_into_inner(&mut #write_into, #(ToArrayString::to_arraystring(#caller_arguments)),*)
     })
     .into()
 }

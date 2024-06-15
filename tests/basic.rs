@@ -1,5 +1,3 @@
-use std::hint::black_box;
-
 use aformat::{aformat, aformat_into, astr, ArrayString};
 
 #[test]
@@ -7,13 +5,17 @@ pub fn basic_aformat() {
     let name = astr!("Walter Hartwell White");
     let street_num = 308_u16;
 
-    let out = aformat!(
-        "My name is {}, I live at {} Negra Aroyo Lane.",
-        name,
-        street_num
+    let out = aformat!("My name is {name}, I live at {street_num} Negra Aroyo Lane.");
+    assert_eq!(
+        out.as_str(),
+        "My name is Walter Hartwell White, I live at 308 Negra Aroyo Lane."
     );
+}
 
-    black_box(out);
+#[test]
+pub fn expr_aformat() {
+    let out = aformat!("2 + 2 = {}", 2_u8 + 2);
+    assert_eq!(out.as_str(), "2 + 2 = 4");
 }
 
 #[test]
