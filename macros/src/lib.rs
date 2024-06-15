@@ -13,11 +13,21 @@ enum Piece {
     Argument(Ident),
 }
 
+impl Piece {
+    fn as_ident(&self) -> Option<&Ident> {
+        if let Self::Argument(ident) = self {
+            Some(ident)
+        } else {
+            None
+        }
+    }
+}
+
 impl quote::ToTokens for Piece {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             Self::Literal(str) => str.to_tokens(tokens),
-            Self::Argument(argument) => quote!(&#argument.to_arraystring()).to_tokens(tokens),
+            Self::Argument(argument) => quote!(#argument.as_str()).to_tokens(tokens),
         }
     }
 }
@@ -96,68 +106,6 @@ impl syn::parse::Parse for FormatIntoArguments {
     }
 }
 
-fn aformat_impl(
-    Arguments {
-        str_base_len,
-        pieces,
-    }: Arguments,
-    write_into: Option<syn::Ident>,
-) -> proc_macro2::TokenStream {
-    let arguments_iter = pieces.iter().filter_map(|p| {
-        if let Piece::Argument(ident) = p {
-            Some(ident)
-        } else {
-            None
-        }
-    });
-
-    let argument_count = arguments_iter.clone().count();
-    let [arguments_iter_1, arguments_iter_2, arguments_iter_3, arguments_iter_4] =
-        array::from_fn(|_| arguments_iter.clone());
-
-    let type_args = (0..argument_count).map(|i| format_ident!("T{i}"));
-    let [type_args_1, type_args_2, type_args_3, type_args_4, type_args_5] =
-        array::from_fn(|_| type_args.clone());
-
-    let calc_required_len = {
-        let type_args = type_args.clone();
-        quote!(#str_base_len + #(#type_args::MAX_LENGTH)+*)
-    };
-
-    let final_expr = match write_into {
-        Some(ident) => quote!(aformat_into_inner(&mut #ident, #(#arguments_iter_1),*)),
-        None => quote!(
-            fn aformat_inner<#(#type_args_4: ToArrayString),*>(
-                #(#arguments_iter_2: #type_args_5),*
-            ) -> ArrayString<{ #calc_required_len }> {
-                let mut out_buffer = ArrayString::new();
-                aformat_into_inner(&mut out_buffer, #(#arguments_iter_3),*);
-                out_buffer
-            }
-
-            aformat_inner(#(#arguments_iter_4),*)
-        ),
-    };
-
-    quote!({
-        use ::aformat::{ArrayString, ToArrayString};
-
-        const fn check_args_fits<const BUF_CAP: usize, #(#type_args_2: ToArrayString),*>() {
-            assert!(BUF_CAP >= (#calc_required_len), "Buffer is not large enough to format into")
-        }
-
-        fn aformat_into_inner<const BUF_CAP: usize, #(#type_args: ToArrayString),*>(
-            out_buffer: &mut ArrayString<BUF_CAP>,
-            #(#arguments_iter: #type_args_1),*
-        ) {
-            const { check_args_fits::<BUF_CAP, #(#type_args_3),*>() };
-            #(out_buffer.push_str(#pieces);)*
-        }
-
-        #final_expr
-    })
-}
-
 /// A no-alloc version of [`format!`], producing an [`ArrayString`].
 ///
 /// ## Usage
@@ -171,12 +119,51 @@ fn aformat_impl(
 /// [`ArrayString`]: https://docs.rs/arrayvec/latest/arrayvec/struct.ArrayString.html
 #[proc_macro]
 pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let arguments = match syn::parse(tokens) {
+    let Arguments {
+        str_base_len,
+        pieces,
+    } = match syn::parse(tokens) {
         Ok(args) => args,
         Err(err) => return err.into_compile_error().into(),
     };
 
-    aformat_impl(arguments, None).into()
+    let [arguments_iter_1, arguments_iter_2, arguments_iter_3] =
+        array::from_fn(|_| pieces.iter().filter_map(Piece::as_ident));
+
+    let argument_count = arguments_iter_1.count();
+    let [const_args_1, const_args_2, const_args_3, const_args_4, const_args_5] =
+        array::from_fn(|_| (0..argument_count).map(|i| format_ident!("N{i}")));
+
+    let return_adder = const_args_1.fold(
+        quote!(StrBaseLen),
+        |current, ident| quote!(RunAdd<#current, U<#ident>>),
+    );
+
+    let return_close_angle_braces = (0..argument_count).map(|_| <Token![>]>::default());
+
+    quote!({
+        use ::aformat::{ArrayString, ToArrayString, __internal::*};
+
+        #[allow(clippy::too_many_arguments)]
+        fn aformat_inner<StrBaseLen, #(const #const_args_2: usize),*>(
+            #(#arguments_iter_2: ArrayString<#const_args_3>),*
+        ) -> RunTypeToArrayString<#return_adder>
+        where
+            Const<#str_base_len>: ToUInt<Output = StrBaseLen>,
+            #(Const<#const_args_4>: ToUInt,)*
+            StrBaseLen: #(Add<U<#const_args_5>, Output: )* TypeNumToArrayString #(#return_close_angle_braces)*
+        {
+            let mut out = ArrayStringLike::new();
+            // Fixes type inferrence
+            if false { return out; }
+
+            #(out.push_str(#pieces);)*
+            out
+        }
+
+        aformat_inner(#(ToArrayString::to_arraystring(#arguments_iter_3)),*)
+    })
+    .into()
 }
 
 /// [`aformat!`], but you provide your own [`ArrayString`].
@@ -209,12 +196,43 @@ pub fn aformat(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro]
 pub fn aformat_into(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let FormatIntoArguments {
-        arguments,
+        arguments: Arguments {
+            str_base_len,
+            pieces,
+        },
         write_into,
     } = match syn::parse(tokens) {
         Ok(args) => args,
         Err(err) => return err.into_compile_error().into(),
     };
 
-    aformat_impl(arguments, Some(write_into)).into()
+    let [arguments_iter_1, arguments_iter_2, arguments_iter_3] =
+        array::from_fn(|_| pieces.iter().filter_map(Piece::as_ident));
+
+    let argument_count = arguments_iter_1.clone().count();
+    let [const_args_1, const_args_2, const_args_3, const_args_4] =
+        array::from_fn(|_| (0..argument_count).map(|i| format_ident!("N{i}")));
+
+    let return_close_angle_braces = (0..argument_count).map(|_| <Token![>]>::default());
+
+    quote!({
+        use ::aformat::{ArrayString, ToArrayString, __internal::*};
+
+        fn aformat_into_inner<StrBaseLen, const OUT: usize, #(const #const_args_2: usize),*>(
+            out: &mut ArrayString<OUT>,
+            #(#arguments_iter_2: ArrayString<#const_args_3>),*
+        )
+        where
+            Const<#str_base_len>: ToUInt<Output = StrBaseLen>,
+            Const<OUT>: ToUInt,
+            #(Const<#const_args_4>: ToUInt,)*
+
+            StrBaseLen: #(Add<U<#const_args_1>, Output: )* IsLessOrEqual<U<OUT>, Output: BufferFits> #(#return_close_angle_braces)*
+        {
+            #(out.push_str(#pieces);)*
+        }
+
+        aformat_into_inner(&mut #write_into, #(ToArrayString::to_arraystring(#arguments_iter_3)),*)
+    })
+    .into()
 }

@@ -1,6 +1,3 @@
-#![feature(generic_const_exprs)]
-#![allow(incomplete_features)]
-
 use std::hint::black_box;
 
 use aformat::{aformat, aformat_into, astr, ArrayString};

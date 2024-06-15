@@ -6,4 +6,4 @@ Read the documentation via `cargo doc --open --no-deps` or on [docs.rs](https://
 
 ## Minimum Supported Rust Version
 
-This is currently latest `nightly`, and requires the `generic_const_exprs` feature.
+This is currently `1.79`, and is considered a breaking change to increase.

@@ -11,17 +11,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install nightly toolchain
-        run: rustup toolchain add nightly
+      - name: Install latest toolchain
+        run: rustup toolchain add stable
 
       - name: Run Cargo test
-        run: cargo +nightly test
+        run: cargo +stable test
+
+  test-msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MSRV toolchain
+        run: rustup toolchain add 1.79
+
+      - name: Run Cargo test on MSRV
+        run: cargo +1.79 test
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install latest toolchain
+        run: rustup toolchain add stable
 
       - name: Run Cargo clippy
         run: cargo clippy -- --deny warnings
@@ -31,6 +46,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install latest toolchain
+        run: rustup toolchain add stable
 
       - name: Run cargo format
         run: cargo fmt --check

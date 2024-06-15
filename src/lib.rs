@@ -3,9 +3,6 @@
 //! ## Example
 //!
 //! ```
-//! #![feature(generic_const_exprs)]
-//! #![allow(incomplete_features)]
-//!
 //! use aformat::{astr, aformat, CapStr};
 //!
 //! pub fn say_hello(name: &str, age: u8) {
@@ -20,7 +17,7 @@
 //!
 //! ## Minimum Supported Rust Version
 //!
-//! This is currently latest `nightly`, and requires the `generic_const_exprs` feature.
+//! This is currently `1.79`, and is considered a breaking change to increase.
 #![cfg_attr(not(doc), no_std)]
 #![warn(clippy::pedantic, rust_2018_idioms)]
 
@@ -30,6 +27,9 @@ pub use arrayvec::ArrayString;
 pub use to_arraystring::ToArrayString;
 
 pub use aformat_macros::{aformat, aformat_into};
+
+#[doc(hidden)]
+pub mod __internal;
 
 /// A simple and easy way to make a perfectly fitting [`ArrayString`] from a literal.
 ///
