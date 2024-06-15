@@ -21,7 +21,6 @@ fn ident_to_expr(ident: Ident) -> syn::Expr {
     })
 }
 
-#[derive(Debug)]
 enum Piece {
     Literal(ByteString),
     Argument { expr: Expr, ident: Ident },
@@ -60,7 +59,6 @@ impl quote::ToTokens for Piece {
     }
 }
 
-#[derive(Debug)]
 struct Arguments {
     str_base_len: usize,
     pieces: Vec<Piece>,
