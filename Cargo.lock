@@ -10,7 +10,7 @@ checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 
 [[package]]
 name = "aformat"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "aformat-macros",
  "arrayvec",
@@ -21,7 +21,7 @@ dependencies = [
 
 [[package]]
 name = "aformat-macros"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bytestring",
  "proc-macro2",

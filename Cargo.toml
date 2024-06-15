@@ -1,11 +1,11 @@
 [package]
 name = "aformat"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT"
 rust-version = "1.79"
 categories = ["value-formatting", "no-std", "no-std::no-alloc"]
-keywords = ["formatting", "array", "no_std", "nightly"]
+keywords = ["formatting", "array", "no_std"]
 repository = "https://github.com/GnomedDev/aformat"
 description = "A no-std and no-alloc version of format! using ToArrayString"
 
