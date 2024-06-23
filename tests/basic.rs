@@ -1,4 +1,9 @@
+use std::cell::Cell;
+
 use aformat::{aformat, aformat_into, astr, ArrayString};
+use utils::OnlyFormatOnce;
+
+mod utils;
 
 #[test]
 pub fn basic_aformat() {
@@ -16,6 +21,15 @@ pub fn basic_aformat() {
 pub fn expr_aformat() {
     let out = aformat!("2 + 2 = {}", 2_u8 + 2);
     assert_eq!(out.as_str(), "2 + 2 = 4");
+}
+
+#[test]
+pub fn duplicated_arguments() {
+    let was_formatted = Cell::new(false);
+    let num = OnlyFormatOnce(1_u8, &was_formatted);
+
+    let out = aformat!("{num} {}", num);
+    assert_eq!(out.as_str(), "1 1");
 }
 
 #[test]

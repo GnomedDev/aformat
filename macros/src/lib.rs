@@ -21,12 +21,53 @@ fn ident_to_expr(ident: Ident) -> syn::Expr {
     })
 }
 
+fn expr_to_ident(expr: &syn::Expr) -> Option<&Ident> {
+    if let syn::Expr::Path(path) = expr {
+        if path.attrs.is_empty() && path.qself.is_none() {
+            return path.path.get_ident();
+        }
+    }
+
+    None
+}
+
+/// A piece of the formatted string.
 enum Piece {
+    /// A literal `&'static str` piece.
     Literal(ByteString),
-    Argument { expr: Expr, ident: Ident },
+    /// A argument that should be passed to `ToArrayString`, then into `aformat_inner`.
+    Argument {
+        /// The expression that produces the argument value.
+        expr: Expr,
+        /// The name of the function argument inside `aformat_inner`
+        ident: Ident,
+    },
+    /// A duplicate argument that was already passed to `aformat_inner`.
+    ArgumentRef { ident: Ident },
 }
 
 impl Piece {
+    fn new_arg_dedupe(new_ident: Ident, existing_pieces: &[Piece]) -> Self {
+        let existing = existing_pieces.iter().find_map(|p| {
+            if let Piece::Argument { ident, .. } = p {
+                if &new_ident == ident {
+                    return Some(ident.clone());
+                }
+            }
+
+            None
+        });
+
+        if let Some(ident) = existing {
+            Piece::ArgumentRef { ident }
+        } else {
+            Piece::Argument {
+                expr: ident_to_expr(new_ident.clone()),
+                ident: new_ident,
+            }
+        }
+    }
+
     fn as_ident(&self) -> Option<&Ident> {
         if let Self::Argument { ident, .. } = self {
             Some(ident)
@@ -52,7 +93,7 @@ impl quote::ToTokens for Piece {
                 let str: &str = str;
                 quote!(out.push_str(#str);).to_tokens(tokens)
             }
-            Self::Argument { ident, .. } => {
+            Self::Argument { ident, .. } | Self::ArgumentRef { ident } => {
                 quote!(out.push_str(#ident.as_str());).to_tokens(tokens)
             }
         }
@@ -87,7 +128,7 @@ impl syn::parse::Parse for Arguments {
 
             let (arg_name, rest) = rest.split_once('}').ok_or_else(unterminated_fmt)?;
 
-            let arg_expr = if arg_name.is_empty() {
+            let arg_piece = if arg_name.is_empty() {
                 if input.is_empty() {
                     return Err(create_err("Not enough arguments for format string"));
                 }
@@ -97,19 +138,24 @@ impl syn::parse::Parse for Arguments {
                     return Err(Error::new(input.span(), "Missing argument seperator (`,`)"));
                 };
 
-                argument
+                if let Some(ident) = expr_to_ident(&argument) {
+                    Piece::new_arg_dedupe(ident.clone(), &pieces)
+                } else {
+                    Piece::Argument {
+                        expr: argument,
+                        ident: Ident::new(&format!("arg_{arg_num}"), Span::call_site()),
+                    }
+                }
             } else {
-                ident_to_expr(syn::Ident::new(arg_name, format_str.span()))
+                let new_ident = Ident::new(arg_name, format_str.span());
+                Piece::new_arg_dedupe(new_ident, &pieces)
             };
 
             current = rest;
 
             str_base_len += text.len();
             pieces.push(Piece::Literal(format_string.slice_ref(text)));
-            pieces.push(Piece::Argument {
-                expr: arg_expr,
-                ident: syn::Ident::new(&format!("arg_{arg_num}"), Span::call_site()),
-            });
+            pieces.push(arg_piece);
         }
 
         Ok(Self {
@@ -120,7 +166,7 @@ impl syn::parse::Parse for Arguments {
 }
 
 struct FormatIntoArguments {
-    write_into: syn::Ident,
+    write_into: Ident,
     arguments: Arguments,
 }
 
