@@ -21,9 +21,20 @@ fn ident_to_expr(ident: Ident) -> syn::Expr {
     })
 }
 
+fn expr_to_ident(expr: &syn::Expr) -> Option<&syn::Ident> {
+    if let syn::Expr::Path(path) = expr {
+        if path.attrs.is_empty() && path.qself.is_none() {
+            return path.path.get_ident();
+        }
+    }
+
+    None
+}
+
 enum Piece {
     Literal(ByteString),
     Argument { expr: Expr, ident: Ident },
+    ArgumentRef { ident: Ident },
 }
 
 impl Piece {
@@ -52,7 +63,7 @@ impl quote::ToTokens for Piece {
                 let str: &str = str;
                 quote!(out.push_str(#str);).to_tokens(tokens)
             }
-            Self::Argument { ident, .. } => {
+            Self::Argument { ident, .. } | Self::ArgumentRef { ident } => {
                 quote!(out.push_str(#ident.as_str());).to_tokens(tokens)
             }
         }
@@ -87,7 +98,7 @@ impl syn::parse::Parse for Arguments {
 
             let (arg_name, rest) = rest.split_once('}').ok_or_else(unterminated_fmt)?;
 
-            let arg_expr = if arg_name.is_empty() {
+            let arg_piece = if arg_name.is_empty() {
                 if input.is_empty() {
                     return Err(create_err("Not enough arguments for format string"));
                 }
@@ -99,17 +110,34 @@ impl syn::parse::Parse for Arguments {
 
                 argument
             } else {
-                ident_to_expr(syn::Ident::new(arg_name, format_str.span()))
+                let new_ident = syn::Ident::new(arg_name, format_str.span());
+                let existing_ident = pieces.iter().find_map(|p| {
+                    if let Piece::Argument { ident: p_ident, .. } = p {
+                        if new_ident == p_ident {
+                            return Some(p_ident);
+                        }
+                    }
+
+                    None
+                });
+
+                if let Some(existing_ident) = existing_ident {
+                    Piece::ArgumentRef {
+                        ident: existing_ident,
+                    }
+                } else {
+                    Piece::Argument {
+                        expr: ident_to_expr(new_ident),
+                        ident: new_ident,
+                    }
+                }
             };
 
             current = rest;
 
             str_base_len += text.len();
             pieces.push(Piece::Literal(format_string.slice_ref(text)));
-            pieces.push(Piece::Argument {
-                expr: arg_expr,
-                ident: syn::Ident::new(&format!("arg_{arg_num}"), Span::call_site()),
-            });
+            pieces.push(arg_piece);
         }
 
         Ok(Self {
