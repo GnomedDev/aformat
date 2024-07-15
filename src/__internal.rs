@@ -1,6 +1,6 @@
 pub use core::ops::Add;
 
-use arrayvec::ArrayString;
+use to_arraystring::ArrayString;
 pub use typenum::{Const, IsLessOrEqual, ToUInt, B1, U};
 
 #[diagnostic::on_unimplemented(

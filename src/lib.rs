@@ -22,9 +22,7 @@
 #![warn(clippy::pedantic, rust_2018_idioms)]
 
 #[doc(no_inline)]
-pub use arrayvec::ArrayString;
-#[doc(no_inline)]
-pub use to_arraystring::ToArrayString;
+pub use to_arraystring::{ArrayString, ToArrayString};
 
 pub use aformat_macros::{aformat, aformat_into};
 
