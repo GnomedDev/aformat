@@ -1,3 +1,8 @@
+# 0.1.4
+
+- The `std` feature of `arrayvec` is no longer enabled, fixing `no_std` compatiblity.
+- `aformat` and `aformat_into` now avoid formatting identical ident arguments multiple times.
+
 # 0.1.3
 
 - `aformat` and `aformat_into` both now support expressions as arguments, allowing `aformat!("2 + 2 = {}", 2_u8 + 2)` to compile.

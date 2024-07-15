@@ -1,6 +1,6 @@
 [package]
 name = "aformat"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 license = "MIT"
 rust-version = "1.79"
@@ -11,6 +11,6 @@ description = "A no-std and no-alloc version of format! using ToArrayString"
 
 [dependencies]
 typenum = { version = "1.17.0", features = ["const-generics"] }
-aformat-macros = { version = "0.1.3", path = "macros" }
+aformat-macros = { version = "=0.1.3", path = "macros" }
 typenum_mappings = "0.1.0"
 to-arraystring = "0.2.2"
