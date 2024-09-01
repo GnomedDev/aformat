@@ -1,3 +1,7 @@
+# 0.1.5
+
+- Removed unused `procout` dependency of `aformat_macros`.
+
 # 0.1.4
 
 - The `std` feature of `arrayvec` is no longer enabled, fixing `no_std` compatiblity.
