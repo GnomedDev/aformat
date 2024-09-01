@@ -1,3 +1,8 @@
+# 0.1.6
+
+- Fixed `non_snake_case` warning triggering when using generic consts in `aformat/aformat_into`.
+- Fixed error when using consts in `aformat`/`aformat_into`.
+
 # 0.1.5
 
 - Removed unused `procout` dependency of `aformat_macros`.
