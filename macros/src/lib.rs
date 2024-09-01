@@ -3,7 +3,7 @@
 use std::array;
 
 use bytestring::ByteString;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{punctuated::Punctuated, Error, Expr, Ident, Result, Token};
 
@@ -48,6 +48,9 @@ enum Piece {
 
 impl Piece {
     fn new_arg_dedupe(new_ident: Ident, existing_pieces: &[Piece]) -> Self {
+        let expr = ident_to_expr(new_ident.clone());
+        let new_ident = format_ident!("arg_{new_ident}");
+
         let existing = existing_pieces.iter().find_map(|p| {
             if let Piece::Argument { ident, .. } = p {
                 if &new_ident == ident {
@@ -62,7 +65,7 @@ impl Piece {
             Piece::ArgumentRef { ident }
         } else {
             Piece::Argument {
-                expr: ident_to_expr(new_ident.clone()),
+                expr,
                 ident: new_ident,
             }
         }
@@ -143,7 +146,7 @@ impl syn::parse::Parse for Arguments {
                 } else {
                     Piece::Argument {
                         expr: argument,
-                        ident: Ident::new(&format!("arg_{arg_num}"), Span::call_site()),
+                        ident: format_ident!("arg_{arg_num}"),
                     }
                 }
             } else {

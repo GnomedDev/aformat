@@ -24,6 +24,14 @@ pub fn expr_aformat() {
 }
 
 #[test]
+fn direct_const_use() {
+    const N: usize = 1;
+    let out = aformat!("{N}");
+
+    assert_eq!(out.as_str(), "1");
+}
+
+#[test]
 pub fn duplicated_arguments() {
     let was_formatted = Cell::new(false);
     let num = OnlyFormatOnce(1_u8, &was_formatted);
