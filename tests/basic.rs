@@ -54,3 +54,9 @@ pub fn astr() {
         assert_eq!(val.capacity(), val.len());
     }
 }
+
+#[allow(unused)]
+#[deny(non_snake_case)]
+fn test_non_snake_case<const N: usize>() {
+    aformat!("{N}");
+}
