@@ -1,3 +1,7 @@
+# 0.1.7
+
+- Added `nonzero_impls` feature to `to_arraystring` as MSRV permits, allowing formatting of `NonZero` integers.
+
 # 0.1.6
 
 - Fixed `non_snake_case` warning triggering when using generic consts in `aformat/aformat_into`.
