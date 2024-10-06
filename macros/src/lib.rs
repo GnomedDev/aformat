@@ -5,7 +5,7 @@ use std::array;
 use bytestring::ByteString;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{punctuated::Punctuated, Error, Expr, Ident, Result, Token};
+use syn::{punctuated::Punctuated, spanned::Spanned as _, Error, Expr, Ident, LitStr, Token};
 
 fn ident_to_expr(ident: Ident) -> syn::Expr {
     syn::Expr::Path(syn::ExprPath {
@@ -103,14 +103,58 @@ impl quote::ToTokens for Piece {
     }
 }
 
+struct ConcatInvoke(Punctuated<LitStr, Token![,]>);
+
+impl ConcatInvoke {
+    fn evaluate(self) -> LitStr {
+        let span = self.0.span();
+        let mut strings = self.0.into_iter();
+        if let Some(first) = strings.next() {
+            let mut out_string = first.value();
+            for string in strings {
+                out_string.push_str(&string.value());
+            }
+
+            LitStr::new(&out_string, span)
+        } else {
+            LitStr::new("", span)
+        }
+    }
+}
+
+impl syn::parse::Parse for ConcatInvoke {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
+        let call: syn::Macro = input.parse()?;
+        let Some(ident) = call.path.get_ident() else {
+            return Err(input.error("expected `concat!`"));
+        };
+
+        if ident != "concat" {
+            return Err(input.error("expected `concat!`"));
+        }
+
+        call.parse_body_with(Punctuated::parse_terminated).map(Self)
+    }
+}
+
 struct Arguments {
     str_base_len: usize,
     pieces: Vec<Piece>,
 }
 
 impl syn::parse::Parse for Arguments {
-    fn parse(input: syn::parse::ParseStream<'_>) -> Result<Self> {
-        let format_str = input.parse::<syn::LitStr>()?;
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
+        let format_str = {
+            let input_copy = input.fork();
+            if input_copy.peek(LitStr) {
+                input.parse()?
+            } else if let Ok(invoke) = input.parse::<ConcatInvoke>() {
+                invoke.evaluate()
+            } else {
+                return Err(input_copy.error("Expected literal string or concat! invoke"));
+            }
+        };
+
         input.parse::<Option<Token![,]>>()?;
 
         let create_err = |msg| Error::new(format_str.span(), msg);
@@ -174,7 +218,7 @@ struct FormatIntoArguments {
 }
 
 impl syn::parse::Parse for FormatIntoArguments {
-    fn parse(input: syn::parse::ParseStream<'_>) -> Result<Self> {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
         let write_into = input.parse()?;
         input.parse::<Token![,]>()?;
 

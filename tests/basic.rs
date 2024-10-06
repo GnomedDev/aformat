@@ -41,6 +41,12 @@ pub fn duplicated_arguments() {
 }
 
 #[test]
+pub fn concat_string() {
+    let out = aformat!(concat!("Hel", "lo", " {}"), 1234_u16);
+    assert_eq!(out.as_str(), "Hello 1234");
+}
+
+#[test]
 pub fn aformat_into() {
     let mut out_buf = ArrayString::<32>::new();
 
