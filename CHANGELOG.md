@@ -1,3 +1,7 @@
+# 0.1.8
+
+- Added support for `concat!` directly in the format string.
+
 # 0.1.7
 
 - Added `nonzero_impls` feature to `to_arraystring` as MSRV permits, allowing formatting of `NonZero` integers.
